@@ -7,8 +7,31 @@
 #
 # `web` serves the built React app and proxies `/submit` + `/healthz`
 # to the internal `haskell-exec` service.
+#
+# Keep `web` first in this file. Some hosted Docker Compose workflows infer the
+# public-facing service from declaration order, and `web` is the only service
+# that should ever be exposed outside the private stack network.
 
 services:
+  web:
+    build:
+      context: .
+      dockerfile: ./Dockerfile.web
+      args:
+        VITE_HASKELL_API: ""
+    image: lexer-lab/web:dev
+    container_name: lexer-lab-web
+    depends_on:
+      haskell-exec:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
   haskell-exec:
     build:
       context: .
@@ -35,25 +58,6 @@ services:
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/healthz"]
-      interval: 30s
-      timeout: 3s
-      retries: 3
-      start_period: 5s
-
-  web:
-    build:
-      context: .
-      dockerfile: ./Dockerfile.web
-      args:
-        VITE_HASKELL_API: ""
-    image: lexer-lab/web:dev
-    container_name: lexer-lab-web
-    depends_on:
-      haskell-exec:
-        condition: service_healthy
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/"]
       interval: 30s
       timeout: 3s
       retries: 3
