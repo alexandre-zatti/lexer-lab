@@ -137,39 +137,74 @@ runInBwrap src stdinIn =
     let srcPath = workdir </> "Main.hs"
     withFile srcPath WriteMode $ \h -> hPutStr h (T.unpack src)
     t0 <- getCurrentTime
-    let bwrapArgs =
-          [ "--unshare-user"
-          , "--unshare-net"
-          , "--unshare-ipc"
-          , "--unshare-uts"
-          , "--die-with-parent"
-          , "--ro-bind", "/", "/"
-          , "--tmpfs", "/tmp"
-          , "--bind", workdir, "/tmp/work"
-          , "--dev", "/dev"
-          , "--chdir", "/tmp/work"
-          , "--setenv", "HOME", "/tmp"
-          , "--setenv", "PATH", "/opt/ghc/9.6.7/bin:/usr/local/bin:/usr/bin:/bin"
-          , "--setenv", "LC_ALL", "C.UTF-8"
-          , "--setenv", "LANG", "C.UTF-8"
-          , "--"
-          , "timeout", "5s"
-          , "runghc", "Main.hs"
-          ]
-        pc = setStdin (byteStringInput (BL.fromStrict (TE.encodeUtf8 stdinIn)))
-          (proc "bwrap" bwrapArgs)
-    (xc, outLBS, errLBS) <- readProcess pc
+    primaryResult <- runBwrapWithArgs (bwrapArgsWithUserns workdir) stdinIn
+    runnerResult <-
+      if shouldRetryWithoutUserns primaryResult
+        then runBwrapWithArgs (bwrapArgsWithoutUserns workdir) stdinIn
+        else pure primaryResult
     t1 <- getCurrentTime
     let dt = realToFrac (diffUTCTime t1 t0) :: Double
-        ecInt = case xc of
-          ExitSuccess   -> 0
-          ExitFailure n -> n
-    pure RunnerResult
-      { runnerExitCode = ecInt
-      , runnerStdout = TE.decodeUtf8 (BL.toStrict outLBS)
-      , runnerStderr = TE.decodeUtf8 (BL.toStrict errLBS)
-      , runnerTimeSecs = dt
-      }
+    pure runnerResult { runnerTimeSecs = dt }
+
+runBwrapWithArgs :: [String] -> Text -> IO RunnerResult
+runBwrapWithArgs bwrapArgs stdinIn = do
+  let pc = setStdin (byteStringInput (BL.fromStrict (TE.encodeUtf8 stdinIn)))
+        (proc "bwrap" bwrapArgs)
+  (xc, outLBS, errLBS) <- readProcess pc
+  pure RunnerResult
+    { runnerExitCode = case xc of
+        ExitSuccess   -> 0
+        ExitFailure n -> n
+    , runnerStdout = TE.decodeUtf8 (BL.toStrict outLBS)
+    , runnerStderr = TE.decodeUtf8 (BL.toStrict errLBS)
+    , runnerTimeSecs = 0
+    }
+
+bwrapArgsWithUserns :: FilePath -> [String]
+bwrapArgsWithUserns workdir =
+  commonBwrapArgs workdir
+    [ "--unshare-user"
+    , "--unshare-net"
+    , "--unshare-ipc"
+    , "--unshare-uts"
+    ]
+
+bwrapArgsWithoutUserns :: FilePath -> [String]
+bwrapArgsWithoutUserns workdir =
+  commonBwrapArgs workdir
+    [ "--unshare-net"
+    , "--unshare-ipc"
+    , "--unshare-uts"
+    , "--cap-drop", "ALL"
+    ]
+
+commonBwrapArgs :: FilePath -> [String] -> [String]
+commonBwrapArgs workdir namespaceArgs =
+  namespaceArgs
+    <> [ "--new-session"
+       , "--die-with-parent"
+       , "--ro-bind", "/", "/"
+       , "--tmpfs", "/tmp"
+       , "--bind", workdir, "/tmp/work"
+       , "--dev", "/dev"
+       , "--chdir", "/tmp/work"
+       , "--setenv", "HOME", "/tmp"
+       , "--setenv", "PATH", "/opt/ghc/9.6.7/bin:/usr/local/bin:/usr/bin:/bin"
+       , "--setenv", "LC_ALL", "C.UTF-8"
+       , "--setenv", "LANG", "C.UTF-8"
+       , "--"
+       , "timeout", "5s"
+       , "runghc", "Main.hs"
+       ]
+
+shouldRetryWithoutUserns :: RunnerResult -> Bool
+shouldRetryWithoutUserns RunnerResult { runnerExitCode, runnerStderr } =
+  runnerExitCode /= 0
+    && any (`T.isInfixOf` runnerStderr)
+      [ "Failed to make / slave: Permission denied"
+      , "No permissions to create new namespace"
+      , "No permissions to create new user namespace"
+      ]
 
 buildRunnerPreamble :: Text -> Text
 buildRunnerPreamble studentBody =

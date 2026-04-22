@@ -15,6 +15,7 @@ services:
       - "8080:8080"
     cap_add:
       - SYS_ADMIN          # required for bwrap --unshare-user inside Docker
+      - NET_ADMIN          # required for bwrap fallback when user namespaces are restricted
     security_opt:
       - apparmor=unconfined # required on Ubuntu/Coolify hosts that restrict user namespaces
       - seccomp=unconfined # required for bwrap's clone() syscall path
