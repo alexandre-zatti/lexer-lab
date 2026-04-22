@@ -198,9 +198,12 @@ commonBwrapArgs workdir namespaceArgs =
        ]
 
 shouldRetryWithoutUserns :: RunnerResult -> Bool
-shouldRetryWithoutUserns RunnerResult { runnerExitCode, runnerStderr } =
-  runnerExitCode /= 0
-    && any (`T.isInfixOf` runnerStderr)
+shouldRetryWithoutUserns RunnerResult
+  { runnerExitCode = exitCode
+  , runnerStderr = stderrText
+  } =
+  exitCode /= 0
+    && any (`T.isInfixOf` stderrText)
       [ "Failed to make / slave: Permission denied"
       , "No permissions to create new namespace"
       , "No permissions to create new user namespace"
