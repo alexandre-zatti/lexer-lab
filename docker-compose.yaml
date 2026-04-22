@@ -24,6 +24,27 @@ services:
     depends_on:
       haskell-exec:
         condition: service_healthy
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=coolify
+      - traefik.http.middlewares.lexer-lab-gzip.compress=true
+      - traefik.http.middlewares.lexer-lab-redirect-to-https.redirectscheme.scheme=https
+      - traefik.http.routers.lexer-lab-http.entrypoints=http
+      - traefik.http.routers.lexer-lab-http.middlewares=lexer-lab-redirect-to-https
+      - traefik.http.routers.lexer-lab-http.priority=1000
+      - traefik.http.routers.lexer-lab-http.rule=Host(`lexer-lab.zatti.tech`) && PathPrefix(`/`)
+      - traefik.http.routers.lexer-lab-http.service=lexer-lab-web
+      - traefik.http.routers.lexer-lab-https.entrypoints=https
+      - traefik.http.routers.lexer-lab-https.middlewares=lexer-lab-gzip
+      - traefik.http.routers.lexer-lab-https.priority=1000
+      - traefik.http.routers.lexer-lab-https.rule=Host(`lexer-lab.zatti.tech`) && PathPrefix(`/`)
+      - traefik.http.routers.lexer-lab-https.service=lexer-lab-web
+      - traefik.http.routers.lexer-lab-https.tls=true
+      - traefik.http.routers.lexer-lab-https.tls.certresolver=letsencrypt
+      - traefik.http.services.lexer-lab-web.loadbalancer.server.port=80
+    networks:
+      - default
+      - coolify
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1/"]
@@ -55,6 +76,8 @@ services:
       PORT: "8080"
     volumes:
       - lexer-lab-data:/data
+    networks:
+      - default
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/healthz"]
@@ -65,3 +88,7 @@ services:
 
 volumes:
   lexer-lab-data:
+
+networks:
+  coolify:
+    external: true
