@@ -1,11 +1,12 @@
 # Lexer Lab — local/prod stack.
 #
-# This file mirrors docker-compose.yml so platforms that expect the .yaml
-# extension, such as the current Coolify MCP flow, can deploy the same stack.
+# This file is the Coolify deployment variant. It keeps the same service
+# topology as docker-compose.yml, but omits host port bindings so the stack can
+# run behind Coolify's reverse proxy without conflicting with ports already in
+# use on the VPS.
 #
 # `web` serves the built React app and proxies `/submit` + `/healthz`
-# to the internal `haskell-exec` service. `haskell-exec` stays exposed on
-# host port 8080 for backend-only smoke tests and admin debugging.
+# to the internal `haskell-exec` service.
 
 services:
   haskell-exec:
@@ -14,8 +15,6 @@ services:
       dockerfile: ./haskell-exec/Dockerfile
     image: lexer-lab/haskell-exec:dev
     container_name: lexer-lab-haskell-exec
-    ports:
-      - "8080:8080"
     cap_add:
       - SYS_ADMIN          # required for bwrap --unshare-user inside Docker
     security_opt:
@@ -52,8 +51,6 @@ services:
     depends_on:
       haskell-exec:
         condition: service_healthy
-    ports:
-      - "4173:80"
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1/"]
