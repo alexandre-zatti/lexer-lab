@@ -587,7 +587,7 @@ export default function App() {
                     className={styles.editorRegion}
                     data-tone={allPassed ? 'pass' : 'edit'}
                   >
-                    {allPassed ? 'código aprovado' : 'solução livre'}
+                    {allPassed ? 'código aprovado' : 'template completo'}
                   </span>
                   {!hasRequiredLexerSignature && (
                     <span className={styles.editorWarning}>
@@ -596,6 +596,9 @@ export default function App() {
                   )}
                 </div>
                 <div className={styles.editorBarRight}>
+                  <span className={styles.editorTemplateHint}>
+                    prefixo e rodapé protegidos
+                  </span>
                   <span className={styles.editorShortcutHint}>
                     {EDITOR_SHORTCUT_HINT}
                   </span>

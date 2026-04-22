@@ -1,5 +1,5 @@
 import { closeBrackets } from '@codemirror/autocomplete'
-import { EditorSelection, EditorState } from '@codemirror/state'
+import { EditorState } from '@codemirror/state'
 import { indentUnit } from '@codemirror/language'
 import { EditorView } from '@codemirror/view'
 import {
@@ -9,6 +9,12 @@ import {
   useRef,
   useState,
 } from 'react'
+import { lockedEditorExtensions } from '../lexer-lab/editorLocks'
+import {
+  extractStudentBody,
+  mergeStudentBody,
+  studentTemplate,
+} from '../lexer-lab/template'
 import { useLabStore } from '../state/store'
 import { localCompletionSource } from './editor/completions'
 import {
@@ -36,7 +42,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   const viewRef = useRef<EditorView | null>(null)
   const submitRef = useRef(onRequestSubmit)
   const studentCode = useLabStore((s) => s.studentCode)
-  const initialCodeRef = useRef(studentCode)
+  const initialCodeRef = useRef(mergeStudentBody(studentCode))
   const setStudentCode = useLabStore((s) => s.setStudentCode)
   const [isFocused, setIsFocused] = useState(false)
 
@@ -69,6 +75,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
         haskellLanguage.data.of({
           autocomplete: localCompletionSource,
         }),
+        ...lockedEditorExtensions(),
         ...editorThemeExtensions,
         buildEditorKeymap(() => submitRef.current?.()),
         EditorView.domEventHandlers({
@@ -81,7 +88,8 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
         }),
         EditorView.updateListener.of((update) => {
           if (!update.docChanged) return
-          setStudentCode(update.state.doc.toString())
+          const nextStudentCode = extractStudentBody(update.state.doc.toString())
+          if (nextStudentCode !== null) setStudentCode(nextStudentCode)
         }),
       ],
     })
@@ -114,31 +122,21 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
 Editor.displayName = 'Editor'
 
 function syncExternalCode(view: EditorView, nextCode: string) {
-  const currentCode = view.state.doc.toString()
-  if (currentCode === nextCode) return
+  const currentDoc = view.state.doc.toString()
+  const nextDoc = mergeStudentBody(nextCode)
+  if (currentDoc === nextDoc) return
+  if (extractStudentBody(currentDoc) === nextCode) return
 
-  const hadFocus = view.hasFocus
+  const editableFrom = studentTemplate.editableFrom
+  const editableTo = currentDoc.length - studentTemplate.suffix.length
   const scrollTop = view.scrollDOM.scrollTop
   const scrollLeft = view.scrollDOM.scrollLeft
-  const selection = hadFocus
-    ? EditorSelection.create(
-        view.state.selection.ranges.map((range) =>
-          EditorSelection.range(
-            Math.min(range.anchor, nextCode.length),
-            Math.min(range.head, nextCode.length),
-          ),
-        ),
-        view.state.selection.mainIndex,
-      )
-    : undefined
 
   view.dispatch({
-    changes: { from: 0, to: currentCode.length, insert: nextCode },
+    changes: { from: editableFrom, to: editableTo, insert: nextCode },
     scrollIntoView: false,
-    selection,
   })
 
-  if (!hadFocus) return
   view.scrollDOM.scrollTop = scrollTop
   view.scrollDOM.scrollLeft = scrollLeft
 }

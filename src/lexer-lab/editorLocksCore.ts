@@ -1,15 +1,6 @@
-import {
-  EditorSelection,
-  EditorState,
-  type Extension,
-  type TransactionSpec,
-} from '@codemirror/state'
+import { EditorState, type Extension, type TransactionSpec } from '@codemirror/state'
 import { Decoration, EditorView } from '@codemirror/view'
-import {
-  clampToEditableRange,
-  isWithinEditableRange,
-  type TemplateParts,
-} from './template-shared.ts'
+import { type TemplateParts } from './template-shared.ts'
 
 const lockedMark = Decoration.mark({ class: 'cm-locked-region' })
 
@@ -18,40 +9,11 @@ export function lockedEditorExtensionsFor(
 ): Extension[] {
   return [
     EditorState.transactionFilter.of((tr): TransactionSpec | readonly TransactionSpec[] => {
-      if (!tr.docChanged && !tr.selection) {
-        return []
-      }
-
-      const editableFrom = template.editableFrom
-      const editableTo = tr.startState.doc.length - template.suffix.length
-
-      if (tr.docChanged) {
-        let valid = true
-        tr.changes.iterChangedRanges((fromA, toA) => {
-          if (!isWithinEditableRange(fromA, toA, editableFrom, editableTo)) {
-            valid = false
-          }
-        })
-        if (!valid) {
-          return []
-        }
-      }
-
-      if (!tr.selection) {
-        return tr
-      }
-
-      const clamped = tr.startState.changeByRange((range) => {
-        const anchor = clampToEditableRange(
-          range.anchor,
-          editableFrom,
-          editableTo,
-        )
-        const head = clampToEditableRange(range.head, editableFrom, editableTo)
-        return { range: EditorSelection.range(anchor, head) }
-      })
-
-      return [tr, { selection: clamped.selection }]
+      if (!tr.docChanged) return tr
+      const nextDoc = tr.newDoc.toString()
+      return nextDoc.startsWith(template.prefix) && nextDoc.endsWith(template.suffix)
+        ? tr
+        : []
     }),
     EditorView.decorations.of((view) =>
       Decoration.set([

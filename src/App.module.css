@@ -1035,6 +1035,13 @@
   min-width: 0;
 }
 
+.editorTemplateHint {
+  color: var(--fg-3);
+  font-size: 0.7rem;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
 .editorShortcutHint {
   color: var(--fg-3);
   font-family: var(--font-mono);
@@ -1229,6 +1236,10 @@
   }
 
   .editorShortcutHint {
+    display: none;
+  }
+
+  .editorTemplateHint {
     display: none;
   }
 
