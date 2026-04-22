@@ -1,0 +1,14 @@
+.git
+.gitignore
+.env*
+node_modules
+dist
+*.tsbuildinfo
+
+haskell-exec/dist-newstyle
+haskell-exec/.stack-work
+haskell-exec/.ghc.environment.*
+haskell-exec/*.hi
+haskell-exec/*.o
+haskell-exec/*.dyn_hi
+haskell-exec/*.dyn_o

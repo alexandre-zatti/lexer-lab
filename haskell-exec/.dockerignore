@@ -1,0 +1,11 @@
+dist
+dist-newstyle
+.stack-work
+.ghc.environment.*
+*.hi
+*.o
+*.dyn_hi
+*.dyn_o
+.git
+.gitignore
+*.md

@@ -1,0 +1,28 @@
+# Haskell build artifacts (runghc / ghc)
+*.hi
+*.o
+*.dyn_hi
+*.dyn_o
+
+# cabal / stack (future)
+dist-newstyle/
+dist/
+.stack-work/
+
+# Editor / OS
+.DS_Store
+*.swp
+.vscode/
+.idea/
+
+# Local env
+.env
+.env.local
+.env.development
+*.tsbuildinfo
+
+# Node (future — when frontend lands)
+node_modules/
+dist/
+.vite/
+.gstack/

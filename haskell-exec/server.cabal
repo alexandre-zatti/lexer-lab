@@ -1,0 +1,40 @@
+cabal-version:   3.0
+name:            lexer-lab-haskell-exec
+version:         0.1.0
+synopsis:        Haskell judge runner for Lexer Lab (bwrap + runghc + warp)
+license:         BSD-3-Clause
+author:          Alexandre Zatti
+build-type:      Simple
+
+executable server
+  main-is:          Server.hs
+  default-language: Haskell2010
+  ghc-options:      -O1 -Wall -Wcompat -threaded -rtsopts -with-rtsopts=-N
+  other-modules:
+      ClientInfo
+    , Config
+    , Email
+    , HttpError
+    , Judge
+    , Persistence
+    , RateLimit
+  build-depends:
+      base          ^>=4.18
+    , aeson         ^>=2.2
+    , base16-bytestring
+    , bytestring
+    , containers
+    , cryptohash-sha256
+    , directory
+    , http-types    ^>=0.12
+    , filepath
+    , network
+    , sqlite-simple
+    , stm
+    , temporary     ^>=1.3
+    , text
+    , time
+    , typed-process ^>=0.2
+    , wai           ^>=3.2
+    , wai-cors      ^>=0.2
+    , warp          ^>=3.4
