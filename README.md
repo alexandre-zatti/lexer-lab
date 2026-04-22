@@ -76,6 +76,7 @@ The compose stack is set up for container platforms such as Coolify:
 - `web` builds the static frontend and serves it with Nginx
 - `web` proxies `/submit` and `/healthz` to `haskell-exec`
 - `haskell-exec` stores state in the named volume `lexer-lab-data`
+- `haskell-exec` runs with `SYS_ADMIN`, `seccomp=unconfined`, and `apparmor=unconfined` so `bubblewrap` can create its nested sandbox on Ubuntu/Coolify hosts
 
 For production, point your public domain at the `web` service.
 

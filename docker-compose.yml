@@ -16,6 +16,7 @@ services:
     cap_add:
       - SYS_ADMIN          # required for bwrap --unshare-user inside Docker
     security_opt:
+      - apparmor=unconfined # required on Ubuntu/Coolify hosts that restrict user namespaces
       - seccomp=unconfined # required for bwrap's clone() syscall path
     environment:
       LEXER_LAB_WORKERS: "4"
