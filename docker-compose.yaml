@@ -1,0 +1,66 @@
+# Lexer Lab — local/prod stack.
+#
+# This file mirrors docker-compose.yml so platforms that expect the .yaml
+# extension, such as the current Coolify MCP flow, can deploy the same stack.
+#
+# `web` serves the built React app and proxies `/submit` + `/healthz`
+# to the internal `haskell-exec` service. `haskell-exec` stays exposed on
+# host port 8080 for backend-only smoke tests and admin debugging.
+
+services:
+  haskell-exec:
+    build:
+      context: .
+      dockerfile: ./haskell-exec/Dockerfile
+    image: lexer-lab/haskell-exec:dev
+    container_name: lexer-lab-haskell-exec
+    ports:
+      - "8080:8080"
+    cap_add:
+      - SYS_ADMIN          # required for bwrap --unshare-user inside Docker
+    security_opt:
+      - seccomp=unconfined # required for bwrap's clone() syscall path
+    environment:
+      LEXER_LAB_WORKERS: "4"
+      LEXER_LAB_DB_PATH: "/data/lexer-lab.sqlite3"
+      LEXER_LAB_ALLOWED_EMAIL_DOMAINS: "estudante.uffs.edu.br,uffs.edu.br"
+      LEXER_LAB_EMAIL_COOLDOWN_SECONDS: "10"
+      LEXER_LAB_EMAIL_LIMIT_15M: "45"
+      LEXER_LAB_EMAIL_LIMIT_1H: "120"
+      LEXER_LAB_IP_ATTEMPT_LIMIT_1M: "120"
+      LEXER_LAB_MAX_PENDING_SUBMISSIONS: "16"
+      LEXER_LAB_TRUST_PROXY: "0"
+      PORT: "8080"
+    volumes:
+      - lexer-lab-data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/healthz"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
+  web:
+    build:
+      context: .
+      dockerfile: ./Dockerfile.web
+      args:
+        VITE_HASKELL_API: ""
+    image: lexer-lab/web:dev
+    container_name: lexer-lab-web
+    depends_on:
+      haskell-exec:
+        condition: service_healthy
+    ports:
+      - "4173:80"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
+volumes:
+  lexer-lab-data:
