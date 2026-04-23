@@ -4,14 +4,14 @@ import Data.Char (isAlpha, isAlphaNum, isDigit, isSpace)
 
 data Token = TokNum Int
            | TokIdent String
-           | TokSoma
-           | TokMult
-           | TokAbrePar
-           | TokFechaPar
+           | TokPlus
+           | TokStar
+           | TokLParen
+           | TokRParen
   deriving (Show, Eq)
 
 -- [STUDENT-BEGIN]
--- Tokens esperados: TokNum n, TokIdent nome, TokSoma, TokMult, TokAbrePar, TokFechaPar
+-- Expected tokens: TokNum n, TokIdent name, TokPlus, TokStar, TokLParen, TokRParen
 lexer :: String -> [Token]
 
 -- [STUDENT-END]

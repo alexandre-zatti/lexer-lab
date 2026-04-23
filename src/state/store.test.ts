@@ -7,8 +7,6 @@ describe('lab store', () => {
     useLabStore.setState({
       studentCode: '',
       lastSubmittedCode: null,
-      studentEmail: null,
-      clientSessionId: 'test-session',
       nextAllowedSubmitAt: null,
       submitStatus: 'idle',
       serr: '',
@@ -17,12 +15,11 @@ describe('lab store', () => {
     })
   })
 
-  it('can save and clear the student email', () => {
-    useLabStore.getState().setStudentEmail('aluno@uffs.edu.br')
-    expect(useLabStore.getState().studentEmail).toBe('aluno@uffs.edu.br')
-
-    useLabStore.getState().clearStudentEmail()
-    expect(useLabStore.getState().studentEmail).toBeNull()
+  it('records and restores the last submitted code', () => {
+    useLabStore.getState().recordLastSubmittedCode('lexer s = []\n')
+    useLabStore.setState({ studentCode: 'different' })
+    useLabStore.getState().restoreLastSubmittedCode()
+    expect(useLabStore.getState().studentCode).toBe('lexer s = []\n')
   })
 
   it('preserves existing judge results for blocked submit feedback', () => {
@@ -38,7 +35,7 @@ describe('lab store', () => {
       ],
     })
 
-    useLabStore.getState().setSubmitError('Aguarde.', 'blocked', {
+    useLabStore.getState().setSubmitError('Wait a moment.', 'blocked', {
       preserveResults: true,
       nextAllowedSubmitAt: 123,
     })

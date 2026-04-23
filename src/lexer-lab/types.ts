@@ -1,10 +1,10 @@
 export type Token =
   | { kind: 'TokNum'; value: number }
   | { kind: 'TokIdent'; value: string }
-  | { kind: 'TokSoma' }
-  | { kind: 'TokMult' }
-  | { kind: 'TokAbrePar' }
-  | { kind: 'TokFechaPar' }
+  | { kind: 'TokPlus' }
+  | { kind: 'TokStar' }
+  | { kind: 'TokLParen' }
+  | { kind: 'TokRParen' }
 
 export function tokenLabel(t: Token): string {
   switch (t.kind) {
@@ -12,13 +12,13 @@ export function tokenLabel(t: Token): string {
       return `TokNum ${t.value}`
     case 'TokIdent':
       return `TokIdent "${t.value}"`
-    case 'TokSoma':
-      return 'TokSoma'
-    case 'TokMult':
-      return 'TokMult'
-    case 'TokAbrePar':
-      return 'TokAbrePar'
-    case 'TokFechaPar':
-      return 'TokFechaPar'
+    case 'TokPlus':
+      return 'TokPlus'
+    case 'TokStar':
+      return 'TokStar'
+    case 'TokLParen':
+      return 'TokLParen'
+    case 'TokRParen':
+      return 'TokRParen'
   }
 }

@@ -46,13 +46,11 @@ data JudgeSummary = JudgeSummary
   , judgeAllPassed   :: !Bool
   } deriving (Eq, Show)
 
-data JudgePayload = JudgePayload
-  { payloadResults :: ![JudgeResult]
-  } deriving (Show)
+newtype JudgePayload = JudgePayload { payloadResults :: [JudgeResult] }
+  deriving (Show)
 
-data JudgeResult = JudgeResult
-  { resultOk :: !Bool
-  } deriving (Show)
+newtype JudgeResult = JudgeResult { resultOk :: Bool }
+  deriving (Show)
 
 instance FromJSON JudgePayload where
   parseJSON = withObject "JudgePayload" $ \o ->
@@ -95,9 +93,9 @@ splitTemplate source = do
 extractStudentBody :: TemplateParts -> Text -> Either Text Text
 extractStudentBody TemplateParts {..} code
   | not (tmplPrefix `T.isPrefixOf` code) =
-      Left "o cabeçalho protegido foi alterado; restaure o template original"
+      Left "the locked header was modified; restore the original template"
   | not (tmplSuffix `T.isSuffixOf` code) =
-      Left "o rodapé protegido foi alterado; restaure o template original"
+      Left "the locked footer was modified; restore the original template"
   | otherwise =
       Right
         (T.drop (T.length tmplPrefix)
@@ -197,6 +195,8 @@ commonBwrapArgs workdir namespaceArgs =
        , "runghc", "Main.hs"
        ]
 
+-- Some Ubuntu/Coolify hosts restrict unprivileged user namespaces; fall back
+-- to a capability-dropped sandbox so submissions still run.
 shouldRetryWithoutUserns :: RunnerResult -> Bool
 shouldRetryWithoutUserns RunnerResult
   { runnerExitCode = exitCode
@@ -217,14 +217,13 @@ buildRunnerPreamble studentBody =
     , "import Control.Exception (SomeException, evaluate, try)"
     , "import Data.Char (isAlpha, isAlphaNum, isDigit, isSpace)"
     , "import Data.List (intercalate)"
-    , "import qualified System.IO"
     , ""
     , "data Token = TokNum Int"
     , "           | TokIdent String"
-    , "           | TokSoma"
-    , "           | TokMult"
-    , "           | TokAbrePar"
-    , "           | TokFechaPar"
+    , "           | TokPlus"
+    , "           | TokStar"
+    , "           | TokLParen"
+    , "           | TokRParen"
     , "  deriving (Show, Eq)"
     , ""
     , T.stripEnd studentBody
@@ -270,10 +269,10 @@ jsonSupport = T.unlines
   , "jToken :: Token -> String"
   , "jToken (TokNum n)   = jObj [(\"kind\", jString \"TokNum\"), (\"value\", jInt n)]"
   , "jToken (TokIdent s) = jObj [(\"kind\", jString \"TokIdent\"), (\"value\", jString s)]"
-  , "jToken TokSoma      = jObj [(\"kind\", jString \"TokSoma\")]"
-  , "jToken TokMult      = jObj [(\"kind\", jString \"TokMult\")]"
-  , "jToken TokAbrePar   = jObj [(\"kind\", jString \"TokAbrePar\")]"
-  , "jToken TokFechaPar  = jObj [(\"kind\", jString \"TokFechaPar\")]"
+  , "jToken TokPlus      = jObj [(\"kind\", jString \"TokPlus\")]"
+  , "jToken TokStar      = jObj [(\"kind\", jString \"TokStar\")]"
+  , "jToken TokLParen    = jObj [(\"kind\", jString \"TokLParen\")]"
+  , "jToken TokRParen    = jObj [(\"kind\", jString \"TokRParen\")]"
   , ""
   ]
 
@@ -285,10 +284,10 @@ commonRuntimeSupport = T.unlines
   , "judgeForceToken :: Token -> ()"
   , "judgeForceToken (TokNum n) = n `seq` ()"
   , "judgeForceToken (TokIdent s) = s `seq` ()"
-  , "judgeForceToken TokSoma = ()"
-  , "judgeForceToken TokMult = ()"
-  , "judgeForceToken TokAbrePar = ()"
-  , "judgeForceToken TokFechaPar = ()"
+  , "judgeForceToken TokPlus = ()"
+  , "judgeForceToken TokStar = ()"
+  , "judgeForceToken TokLParen = ()"
+  , "judgeForceToken TokRParen = ()"
   , ""
   , "judgeForceTokens :: [Token] -> ()"
   , "judgeForceTokens [] = ()"
@@ -307,11 +306,11 @@ commonRuntimeSupport = T.unlines
   , "  | isSpace c = judgeReferenceLexer cs"
   , "  | isDigit c = judgeReferenceLexNum (c:cs)"
   , "  | isAlpha c = judgeReferenceLexIdent (c:cs)"
-  , "  | c == '+' = TokSoma : judgeReferenceLexer cs"
-  , "  | c == '*' = TokMult : judgeReferenceLexer cs"
-  , "  | c == '(' = TokAbrePar : judgeReferenceLexer cs"
-  , "  | c == ')' = TokFechaPar : judgeReferenceLexer cs"
-  , "  | otherwise = error \"caractere inválido\""
+  , "  | c == '+' = TokPlus : judgeReferenceLexer cs"
+  , "  | c == '*' = TokStar : judgeReferenceLexer cs"
+  , "  | c == '(' = TokLParen : judgeReferenceLexer cs"
+  , "  | c == ')' = TokRParen : judgeReferenceLexer cs"
+  , "  | otherwise = error \"invalid character\""
   , ""
   , "judgeReferenceLexNum :: String -> [Token]"
   , "judgeReferenceLexNum cs = TokNum (read n) : judgeReferenceLexer r"
@@ -345,19 +344,19 @@ testSupport = T.unlines
   , ""
   , "fixtures :: [Fixture]"
   , "fixtures ="
-  , "  [ Fixture \"Número de um dígito\" \"7\""
-  , "  , Fixture \"Max-munch: 123\" \"123\""
-  , "  , Fixture \"Identificador simples\" \"abc\""
-  , "  , Fixture \"Identificador com dígitos\" \"x1\""
-  , "  , Fixture \"Número seguido de identificador\" \"12abc\""
-  , "  , Fixture \"Soma simples\" \"1+2\""
-  , "  , Fixture \"Expressão com identificadores\" \"x1 + y2 * z3\""
-  , "  , Fixture \"Multiplicação simples\" \"2*3\""
-  , "  , Fixture \"Identificador com underscore\" \"foo_bar\""
-  , "  , Fixture \"Identificador antes de parênteses\" \"foo(12)\""
-  , "  , Fixture \"Espaços nas bordas\" \"  soma_1 * (x2 + 4)  \""
-  , "  , Fixture \"Início inválido de identificador\" \"_tmp\""
-  , "  , Fixture \"Rejeita char inválido\" \"1 - 2\""
+  , "  [ Fixture \"Single digit\" \"7\""
+  , "  , Fixture \"Maximal munch\" \"123\""
+  , "  , Fixture \"Simple identifier\" \"abc\""
+  , "  , Fixture \"Identifier with digits\" \"x1\""
+  , "  , Fixture \"Number then identifier\" \"12abc\""
+  , "  , Fixture \"Simple addition\" \"1+2\""
+  , "  , Fixture \"Expression with identifiers\" \"x1 + y2 * z3\""
+  , "  , Fixture \"Simple multiplication\" \"2*3\""
+  , "  , Fixture \"Identifier with underscore\" \"foo_bar\""
+  , "  , Fixture \"Identifier before parentheses\" \"foo(12)\""
+  , "  , Fixture \"Whitespace at the edges\" \"  sum_1 * (x2 + 4)  \""
+  , "  , Fixture \"Invalid identifier start\" \"_tmp\""
+  , "  , Fixture \"Invalid character\" \"1 - 2\""
   , "  ]"
   , ""
   , "data Result = Result String String Outcome Outcome Bool"

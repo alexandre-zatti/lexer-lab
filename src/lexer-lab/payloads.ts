@@ -42,10 +42,10 @@ function isToken(value: unknown): value is Token {
       return typeof token.value === 'number'
     case 'TokIdent':
       return typeof token.value === 'string'
-    case 'TokSoma':
-    case 'TokMult':
-    case 'TokAbrePar':
-    case 'TokFechaPar':
+    case 'TokPlus':
+    case 'TokStar':
+    case 'TokLParen':
+    case 'TokRParen':
       return true
     default:
       return false

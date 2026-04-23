@@ -3,7 +3,7 @@ import { tokenLabel } from '../lexer-lab/types'
 import styles from './FixtureChecklist.module.css'
 
 function renderOutcome(outcome: TokenOutcome): string {
-  if (outcome.kind === 'error') return `erro: ${outcome.message}`
+  if (outcome.kind === 'error') return `error: ${outcome.message}`
   if (outcome.tokens.length === 0) return '[]'
   return `[${outcome.tokens.map(tokenLabel).join(', ')}]`
 }
@@ -20,17 +20,17 @@ export function FixtureChecklist({ results, submitStatus, totalChecks }: Props) 
 
   if (results.length === 0) {
     return (
-      <section className={styles.panel} aria-label="Checklist de casos">
+      <section className={styles.panel} aria-label="Case checklist">
         <header className={styles.header}>
           <div>
-            <span className={styles.kicker}>Casos</span>
-            <h3 className={styles.title}>{totalChecks} verificações do judge</h3>
+            <span className={styles.kicker}>Cases</span>
+            <h3 className={styles.title}>{totalChecks} judge checks</h3>
           </div>
         </header>
         <p className={styles.empty}>
           {submitStatus === 'loading'
-            ? 'Executando casos...'
-            : 'Submeta seu lexer para ver quais casos passaram.'}
+            ? 'Running cases...'
+            : 'Submit your lexer to see which cases pass.'}
         </p>
       </section>
     )
@@ -41,11 +41,11 @@ export function FixtureChecklist({ results, submitStatus, totalChecks }: Props) 
     allPassed ? 'pass' : passedCount === 0 ? 'fail' : 'partial'
 
   return (
-    <section className={styles.panel} aria-label="Checklist de casos">
+    <section className={styles.panel} aria-label="Case checklist">
       <header className={styles.header}>
         <div>
-          <span className={styles.kicker}>Casos</span>
-          <h3 className={styles.title}>{totalChecks} verificações do judge</h3>
+          <span className={styles.kicker}>Cases</span>
+          <h3 className={styles.title}>{totalChecks} judge checks</h3>
         </div>
         <div className={styles.headerMeta} data-tone={tone}>
           {passedCount}/{totalChecks}
@@ -65,17 +65,17 @@ export function FixtureChecklist({ results, submitStatus, totalChecks }: Props) 
               </span>
               <div>
                 <div className={styles.rowTitle}>{row.name}</div>
-                <div className={styles.rowMeta}>entrada: {row.input}</div>
+                <div className={styles.rowMeta}>input: {row.input}</div>
               </div>
             </div>
             {!row.ok && index === firstFailure && (
               <div className={styles.diff}>
                 <div className={styles.diffBlock}>
-                  <span className={styles.diffLabel}>esperado</span>
+                  <span className={styles.diffLabel}>expected</span>
                   <code>{renderOutcome(row.expected)}</code>
                 </div>
                 <div className={styles.diffBlock}>
-                  <span className={styles.diffLabel}>obtido</span>
+                  <span className={styles.diffLabel}>got</span>
                   <code>{renderOutcome(row.got)}</code>
                 </div>
               </div>

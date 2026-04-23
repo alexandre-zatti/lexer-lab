@@ -4,71 +4,71 @@ export interface JudgeFixture {
   note: string
 }
 
-// Mirror of the judge fixtures defined in haskell-exec/Server.hs.
+// Mirrors the fixtures list in haskell-exec/Judge.hs. Keep both in sync.
 export const judgeFixtures: JudgeFixture[] = [
   {
-    label: 'Número simples',
+    label: 'Single digit',
     input: '7',
-    note: 'Um único dígito deve produzir TokNum 7.',
+    note: 'One digit should produce TokNum 7.',
   },
   {
     label: 'Maximal munch',
     input: '123',
-    note: 'Todos os dígitos consecutivos precisam virar um único token.',
+    note: 'Consecutive digits collapse into a single TokNum.',
   },
   {
-    label: 'Identificador simples',
+    label: 'Simple identifier',
     input: 'abc',
-    note: 'Letras consecutivas devem virar um único TokIdent.',
+    note: 'Consecutive letters form one TokIdent.',
   },
   {
-    label: 'Identificador com dígitos',
+    label: 'Identifier with digits',
     input: 'x1',
-    note: 'Depois da primeira letra, dígitos também podem entrar no identificador.',
+    note: 'After the first letter, digits may extend the identifier.',
   },
   {
-    label: 'Número seguido de identificador',
+    label: 'Number then identifier',
     input: '12abc',
-    note: 'O lexer precisa separar TokNum 12 de TokIdent "abc".',
+    note: 'The lexer must separate TokNum 12 from TokIdent "abc".',
   },
   {
-    label: 'Soma simples',
+    label: 'Simple addition',
     input: '1+2',
-    note: 'Reconhece + sem depender de espaços.',
+    note: 'Recognize + without needing surrounding spaces.',
   },
   {
-    label: 'Expressão com identificadores',
+    label: 'Expression with identifiers',
     input: 'x1 + y2 * z3',
-    note: 'Mistura identificadores, operadores e espaços.',
+    note: 'Mixes identifiers, operators, and spaces.',
   },
   {
-    label: 'Multiplicação simples',
+    label: 'Simple multiplication',
     input: '2*3',
-    note: 'Reconhece * sem depender de espaços.',
+    note: 'Recognize * without needing surrounding spaces.',
   },
   {
-    label: 'Identificador com underscore',
+    label: 'Identifier with underscore',
     input: 'foo_bar',
-    note: 'O underscore pode aparecer dentro do identificador.',
+    note: 'Underscores are legal inside an identifier.',
   },
   {
-    label: 'Identificador antes de parênteses',
+    label: 'Identifier before parentheses',
     input: 'foo(12)',
-    note: 'Parênteses continuam funcionando ao lado de identificadores.',
+    note: 'Parentheses still tokenize next to identifiers.',
   },
   {
-    label: 'Espaços nas bordas',
-    input: '  soma_1 * (x2 + 4)  ',
-    note: 'Espaços nas bordas não podem alterar a tokenização.',
+    label: 'Whitespace at the edges',
+    input: '  sum_1 * (x2 + 4)  ',
+    note: 'Leading and trailing spaces must not change the tokenization.',
   },
   {
-    label: 'Início inválido de identificador',
+    label: 'Invalid identifier start',
     input: '_tmp',
-    note: 'Identificadores devem começar com letra; underscore inicial deve falhar.',
+    note: 'Identifiers must start with a letter; a leading underscore must fail.',
   },
   {
-    label: 'Caractere inválido',
+    label: 'Invalid character',
     input: '1 - 2',
-    note: 'Este caso deve falhar por causa do -.',
+    note: 'The `-` character is outside the contract and must fail.',
   },
 ]

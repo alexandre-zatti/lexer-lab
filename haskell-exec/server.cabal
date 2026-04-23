@@ -13,7 +13,6 @@ executable server
   other-modules:
       ClientInfo
     , Config
-    , Email
     , HttpError
     , Judge
     , Persistence

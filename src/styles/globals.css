@@ -3,30 +3,9 @@
 :root {
   color-scheme: dark;
 
-  /* UFFS brand — sourced from the institutional visual identity.
-     Green is the primary mark, earth/ochre is the warm counterpoint. */
-  --uffs-green: #00693e;
-  --uffs-green-deep: #00351f;
-  --uffs-green-mid: #004a2c;
-  --uffs-green-bright: #1ea668;   /* lifted for legibility on dark bg */
-  --uffs-earth: #cd7537;
-  --uffs-earth-bright: #e2884a;
-  --uffs-sage: #d4e3b0;
+  --accent-rgb: 30, 166, 104;
+  --earth-rgb: 226, 136, 74;
 
-  /* Back-compat aliases (older rules still reference --brand-*) */
-  --brand-forest: var(--uffs-green);
-  --brand-forest-deep: var(--uffs-green-deep);
-  --brand-forest-mid: var(--uffs-green-mid);
-  --brand-sage: var(--uffs-sage);
-  --brand-paper: #f7faf2;
-  --brand-earth: var(--uffs-earth);
-
-  --accent-rgb: 30, 166, 104;     /* --uffs-green-bright */
-  --earth-rgb: 226, 136, 74;      /* --uffs-earth-bright */
-  --uffs-green-rgb: 0, 105, 62;   /* --uffs-green */
-
-  /* Surfaces — neutral dark (near-black), no green tint.
-     UFFS green appears ONLY on interactive/accent parts. */
   --bg-0: #0a0a0b;
   --bg-1: #111113;
   --bg-2: #17171a;
@@ -34,37 +13,27 @@
   --bg-4: #26262b;
   --bg-raise: #2e2e34;
 
-  /* Topbar — one notch darker than --bg-0 for visual weight */
   --topbar-bg: #07070a;
-  --topbar-line: rgba(var(--accent-rgb), 0.22);
 
-  /* Borders */
   --line: #25252b;
   --line-strong: #34343c;
-  --line-ghost: #101013;
 
-  /* Ink — neutral off-whites and greys */
   --fg-0: #f4f4f5;
   --fg-1: #d4d4d8;
   --fg-2: #a1a1aa;
   --fg-3: #71717a;
   --fg-4: #52525b;
 
-  /* Primary accent — UFFS green, lifted for readability on dark */
-  --accent: var(--uffs-green-bright);
+  --accent: #1ea668;
   --accent-ink: #a1dbba;
   --accent-soft: rgba(var(--accent-rgb), 0.14);
   --accent-line: rgba(var(--accent-rgb), 0.38);
   --accent-glow: rgba(var(--accent-rgb), 0.32);
 
-  /* Warm secondary accent — UFFS earth */
-  --warm: var(--uffs-earth-bright);
   --warm-ink: #f2b58a;
   --warm-soft: rgba(var(--earth-rgb), 0.14);
   --warm-line: rgba(var(--earth-rgb), 0.32);
-  --warm-glow: rgba(var(--earth-rgb), 0.28);
 
-  /* Semantic states */
   --success: #53bb81;
   --success-ink: #9ae1b8;
   --success-soft: rgba(83, 187, 129, 0.12);
@@ -75,11 +44,6 @@
   --danger-soft: rgba(239, 83, 80, 0.12);
   --danger-line: rgba(239, 83, 80, 0.3);
 
-  --info: #5aa7e6;
-  --info-soft: #112334;
-  --info-line: #264870;
-
-  /* Type */
   --font-sans:
     'Poppins', ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI',
     'Helvetica Neue', sans-serif;
@@ -87,7 +51,6 @@
     'JetBrains Mono', 'IBM Plex Mono', ui-monospace, SFMono-Regular, 'Cascadia Mono',
     monospace;
 
-  /* Rhythm */
   --radius-sm: 6px;
   --radius: 10px;
   --radius-lg: 14px;
@@ -125,7 +88,6 @@ body {
   text-rendering: optimizeLegibility;
 }
 
-/* Faint neutral grid — no green tint */
 body::before {
   content: '';
   position: fixed;
@@ -191,17 +153,11 @@ textarea {
   color: var(--fg-0);
 }
 
-input[type='range'] {
-  width: 100%;
-  accent-color: var(--accent);
-}
-
 ::selection {
   background: rgba(var(--accent-rgb), 0.3);
   color: #fff;
 }
 
-/* Thin, unobtrusive scrollbars */
 *::-webkit-scrollbar {
   width: 10px;
   height: 10px;

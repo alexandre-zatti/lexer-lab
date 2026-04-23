@@ -8,10 +8,10 @@ export function ErrorPanel() {
   const isError = submitStatus === 'error'
   const label =
     submitStatus === 'blocked'
-      ? 'Envio bloqueado'
+      ? 'Submission blocked'
       : isError
-        ? 'Erro na submissão'
-        : 'stderr (aviso do GHC)'
+        ? 'Submission error'
+        : 'stderr (GHC warnings)'
   return (
     <section
       className={`${styles.panel} ${isError ? styles.panelError : ''}`}

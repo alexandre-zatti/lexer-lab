@@ -16,27 +16,8 @@ evaluateRateLimits AppConfig {..} nowMs LimitSnapshot {..}
   | limitIpCount1m >= cfgIpAttemptLimit1m =
       Just ApiError
         { apiErrorCode = IpLimit
-        , apiErrorMessage = "Muitas submissões vindas desta rede. Aguarde um pouco antes de tentar novamente."
+        , apiErrorMessage = "Too many submissions from this network. Try again in a moment."
         , apiErrorRetryAfterMs = Just (windowRetry nowMs 60000 limitIpOldest1m)
-        }
-  | Just lastAt <- limitLastEmailSubmissionAt
-  , nowMs - lastAt < cfgEmailCooldownMs =
-      Just ApiError
-        { apiErrorCode = EmailCooldown
-        , apiErrorMessage = "Aguarde alguns segundos antes de enviar outra submissão."
-        , apiErrorRetryAfterMs = Just (cfgEmailCooldownMs - (nowMs - lastAt))
-        }
-  | limitEmailCount15m >= cfgEmailLimit15m =
-      Just ApiError
-        { apiErrorCode = EmailLimit15m
-        , apiErrorMessage = "Você atingiu o limite de submissões dos últimos 15 minutos."
-        , apiErrorRetryAfterMs = Just (windowRetry nowMs 900000 limitEmailOldest15m)
-        }
-  | limitEmailCount1h >= cfgEmailLimit1h =
-      Just ApiError
-        { apiErrorCode = EmailLimit1h
-        , apiErrorMessage = "Você atingiu o limite de submissões da última hora."
-        , apiErrorRetryAfterMs = Just (windowRetry nowMs 3600000 limitEmailOldest1h)
         }
   | otherwise =
       Nothing

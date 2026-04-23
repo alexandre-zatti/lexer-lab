@@ -1,8 +1,7 @@
-# Lexer Lab — local/prod stack.
+# Lexer Lab local stack.
 #
 # `web` serves the built React app and proxies `/submit` + `/healthz`
-# to the internal `haskell-exec` service. `haskell-exec` stays exposed on
-# host port 8080 for backend-only smoke tests and admin debugging.
+# to the private `haskell-exec` service.
 
 services:
   haskell-exec:
@@ -14,18 +13,14 @@ services:
     ports:
       - "8080:8080"
     cap_add:
-      - SYS_ADMIN          # required for bwrap --unshare-user inside Docker
-      - NET_ADMIN          # required for bwrap fallback when user namespaces are restricted
+      - SYS_ADMIN          # bwrap --unshare-user inside Docker
+      - NET_ADMIN          # bwrap fallback when user namespaces are restricted
     security_opt:
-      - apparmor=unconfined # required on Ubuntu/Coolify hosts that restrict user namespaces
-      - seccomp=unconfined # required for bwrap's clone() syscall path
+      - apparmor=unconfined
+      - seccomp=unconfined
     environment:
       LEXER_LAB_WORKERS: "4"
       LEXER_LAB_DB_PATH: "/data/lexer-lab.sqlite3"
-      LEXER_LAB_ALLOWED_EMAIL_DOMAINS: "estudante.uffs.edu.br,uffs.edu.br"
-      LEXER_LAB_EMAIL_COOLDOWN_SECONDS: "10"
-      LEXER_LAB_EMAIL_LIMIT_15M: "45"
-      LEXER_LAB_EMAIL_LIMIT_1H: "120"
       LEXER_LAB_IP_ATTEMPT_LIMIT_1M: "120"
       LEXER_LAB_MAX_PENDING_SUBMISSIONS: "16"
       LEXER_LAB_TRUST_PROXY: "0"

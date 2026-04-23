@@ -19,13 +19,8 @@ import           Network.HTTP.Types    (Header, Status, status400, status429,
 
 data ErrorCode
   = InvalidJson
-  | InvalidEmail
   | TemplateTamper
   | IpLimit
-  | EmailCooldown
-  | EmailLimit15m
-  | EmailLimit1h
-  | EmailInFlight
   | ServerBusy
   | WorkerFailure
   deriving (Eq, Show)
@@ -47,15 +42,10 @@ instance ToJSON ApiError where
 apiErrorStatus :: ApiError -> Status
 apiErrorStatus ApiError { apiErrorCode = code } = case code of
   InvalidJson    -> status400
-  InvalidEmail   -> status400
   TemplateTamper -> status400
   WorkerFailure  -> status503
   ServerBusy     -> status503
   IpLimit        -> status429
-  EmailCooldown  -> status429
-  EmailLimit15m  -> status429
-  EmailLimit1h   -> status429
-  EmailInFlight  -> status429
 
 apiErrorHeaders :: ApiError -> [Header]
 apiErrorHeaders ApiError { apiErrorRetryAfterMs = Nothing } = []
@@ -67,12 +57,7 @@ apiErrorHeaders ApiError { apiErrorRetryAfterMs = Just retryAfterMs } =
 errorCodeText :: ErrorCode -> Text
 errorCodeText code = case code of
   InvalidJson    -> "invalid_json"
-  InvalidEmail   -> "invalid_email"
   TemplateTamper -> "template_tamper"
   IpLimit        -> "ip_limit"
-  EmailCooldown  -> "email_cooldown"
-  EmailLimit15m  -> "email_limit_15m"
-  EmailLimit1h   -> "email_limit_1h"
-  EmailInFlight  -> "email_in_flight"
   ServerBusy     -> "server_busy"
   WorkerFailure  -> "worker_failure"

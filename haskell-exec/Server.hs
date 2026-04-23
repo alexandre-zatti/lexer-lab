@@ -13,22 +13,18 @@ import           Control.Concurrent.STM      (STM, TVar, atomically, modifyTVar'
 import           Control.Exception           (SomeException, finally, try)
 import           Crypto.Hash.SHA256          (hashlazy)
 import           Data.Aeson                  (FromJSON (..), ToJSON (..),
-                                              Value, eitherDecode, encode,
-                                              object, withObject, (.:), (.=))
+                                              eitherDecode, encode, object,
+                                              withObject, (.:), (.=))
 import qualified Data.ByteString.Base16      as Base16
 import qualified Data.ByteString.Lazy        as BL
 import           Data.Int                    (Int64)
-import           Data.Set                    (Set)
-import qualified Data.Set                    as Set
 import           Data.Text                   (Text)
 import qualified Data.Text                   as T
 import qualified Data.Text.Encoding          as TE
 import           Data.Time.Clock             (getCurrentTime)
 import           Data.Time.Clock.POSIX       (utcTimeToPOSIXSeconds)
-import           Email                       (validateInstitutionalEmail)
 import           HttpError                   (ApiError (..), ErrorCode (..),
-                                              apiErrorHeaders, apiErrorStatus,
-                                              errorCodeText)
+                                              apiErrorHeaders, apiErrorStatus)
 import           Judge                       (JudgeSummary (..),
                                               RunnerResult (..), TemplateParts,
                                               buildTestProgram, extractJudgeSummary,
@@ -42,27 +38,16 @@ import           Network.Wai                 (Application, Request, Response,
 import           Network.Wai.Handler.Warp    (run)
 import           Network.Wai.Middleware.Cors (cors, corsRequestHeaders,
                                               simpleCorsResourcePolicy)
-import           Persistence                 (AbuseEvent (..),
-                                              CompletedSubmission (..), Database,
-                                              LimitSnapshot (..),
+import           Persistence                 (CompletedSubmission (..), Database,
                                               NewSubmission (..), completeSubmission,
                                               createSubmission, loadLimitSnapshot,
-                                              logAbuseEvent, openDatabase,
-                                              runMigrations)
+                                              openDatabase, runMigrations)
 import           RateLimit                   (evaluateRateLimits)
 
-data SubmitReq = SubmitReq
-  { reqCode            :: !Text
-  , reqEmail           :: !Text
-  , reqClientSessionId :: !Text
-  } deriving (Show)
+newtype SubmitReq = SubmitReq { reqCode :: Text } deriving (Show)
 
 instance FromJSON SubmitReq where
-  parseJSON = withObject "SubmitReq" $ \o ->
-    SubmitReq
-      <$> o .: "code"
-      <*> o .: "email"
-      <*> o .: "clientSessionId"
+  parseJSON = withObject "SubmitReq" $ \o -> SubmitReq <$> o .: "code"
 
 data SubmitResp = SubmitResp
   { respSubmissionId :: !Int64
@@ -82,12 +67,11 @@ instance ToJSON SubmitResp where
     ]
 
 data AppState = AppState
-  { appConfig         :: !AppConfig
-  , appTemplate       :: !TemplateParts
-  , appDb             :: !Database
-  , appSem            :: !QSem
-  , appPendingCount   :: !(TVar Int)
-  , appInflightEmails :: !(TVar (Set Text))
+  { appConfig       :: !AppConfig
+  , appTemplate     :: !TemplateParts
+  , appDb           :: !Database
+  , appSem          :: !QSem
+  , appPendingCount :: !(TVar Int)
   }
 
 main :: IO ()
@@ -98,7 +82,6 @@ main = do
   runMigrations db
   sem <- newQSem (cfgWorkers cfg)
   pendingCount <- newTVarIO 0
-  inflightEmails <- newTVarIO Set.empty
   let state =
         AppState
           { appConfig = cfg
@@ -106,7 +89,6 @@ main = do
           , appDb = db
           , appSem = sem
           , appPendingCount = pendingCount
-          , appInflightEmails = inflightEmails
           }
   putStrLn $ unwords
     [ "lexer-lab haskell-exec"
@@ -134,179 +116,66 @@ app state req respond = case (requestMethod req, rawPathInfo req) of
       (encode (object ["err" .= ("method not allowed" :: Text)]))
 
 handleSubmit :: AppState -> Request -> (Response -> IO a) -> IO a
-handleSubmit state@AppState {..} req respond = do
+handleSubmit AppState {..} req respond = do
   body <- strictRequestBody req
   nowMs <- currentTimeMs
   let clientIp = requestClientIp (cfgTrustProxy appConfig) req
       userAgent = requestUserAgent req
   case eitherDecode body :: Either String SubmitReq of
-    Left err -> do
-      persistAbuseEvent state AbuseEvent
-        { abuseEventEmail = Nothing
-        , abuseEventClientIp = clientIp
-        , abuseEventUserAgent = userAgent
-        , abuseEventClientSessionId = Nothing
-        , abuseEventHappenedAtMs = nowMs
-        , abuseEventReasonCode = errorCodeText InvalidJson
-        , abuseEventRetryAfterMs = Nothing
-        , abuseEventSourceSha256 = Nothing
-        , abuseEventDetails = object
-            [ "decodeError" .= err
-            , "bodyBytes" .= BL.length body
-            ]
-        }
+    Left _ ->
       respondApiError respond ApiError
         { apiErrorCode = InvalidJson
-        , apiErrorMessage = "Corpo da submissão inválido."
+        , apiErrorMessage = "Invalid submission body."
         , apiErrorRetryAfterMs = Nothing
         }
-    Right submitReq ->
-      handleParsedSubmit state respond nowMs clientIp userAgent submitReq
-
-handleParsedSubmit
-  :: AppState
-  -> (Response -> IO a)
-  -> Int64
-  -> Text
-  -> Text
-  -> SubmitReq
-  -> IO a
-handleParsedSubmit state@AppState {..} respond nowMs clientIp userAgent SubmitReq {..} =
-  case validateInstitutionalEmail (cfgAllowedEmailDomains appConfig) reqEmail of
-    Left err -> do
-      persistAbuseEvent state AbuseEvent
-        { abuseEventEmail = Nothing
-        , abuseEventClientIp = clientIp
-        , abuseEventUserAgent = userAgent
-        , abuseEventClientSessionId = nonEmptyText reqClientSessionId
-        , abuseEventHappenedAtMs = nowMs
-        , abuseEventReasonCode = errorCodeText InvalidEmail
-        , abuseEventRetryAfterMs = Nothing
-        , abuseEventSourceSha256 = Just (sha256Text reqCode)
-        , abuseEventDetails = object ["rawEmail" .= reqEmail]
-        }
-      respondApiError respond ApiError
-        { apiErrorCode = InvalidEmail
-        , apiErrorMessage = err
-        , apiErrorRetryAfterMs = Nothing
-        }
-    Right normalizedEmail ->
+    Right SubmitReq { reqCode } ->
       case extractStudentBody appTemplate reqCode of
-        Left err -> do
-          persistAbuseEvent state AbuseEvent
-            { abuseEventEmail = Just normalizedEmail
-            , abuseEventClientIp = clientIp
-            , abuseEventUserAgent = userAgent
-            , abuseEventClientSessionId = nonEmptyText reqClientSessionId
-            , abuseEventHappenedAtMs = nowMs
-            , abuseEventReasonCode = errorCodeText TemplateTamper
-            , abuseEventRetryAfterMs = Nothing
-            , abuseEventSourceSha256 = Just (sha256Text reqCode)
-            , abuseEventDetails = object []
-            }
+        Left err ->
           respondApiError respond ApiError
             { apiErrorCode = TemplateTamper
             , apiErrorMessage = err
             , apiErrorRetryAfterMs = Nothing
             }
         Right studentBody -> do
-          let sourceHash = sha256Text reqCode
-              since15m = nowMs - 900000
-              since1h = nowMs - 3600000
-              since1m = nowMs - 60000
-          limitSnapshot <-
-            loadLimitSnapshot appDb normalizedEmail clientIp since15m since1h since1m
+          let since1m = nowMs - 60000
+          limitSnapshot <- loadLimitSnapshot appDb clientIp since1m
           case evaluateRateLimits appConfig nowMs limitSnapshot of
-            Just apiErr -> do
-              persistAbuseEvent state AbuseEvent
-                { abuseEventEmail = Just normalizedEmail
-                , abuseEventClientIp = clientIp
-                , abuseEventUserAgent = userAgent
-                , abuseEventClientSessionId = nonEmptyText reqClientSessionId
-                , abuseEventHappenedAtMs = nowMs
-                , abuseEventReasonCode = errorCodeText (apiErrorCode apiErr)
-                , abuseEventRetryAfterMs = apiErrorRetryAfterMs apiErr
-                , abuseEventSourceSha256 = Just sourceHash
-                , abuseEventDetails = limitSnapshotDetails limitSnapshot
-                }
+            Just apiErr ->
               respondApiError respond apiErr
             Nothing -> do
-              inflightClaimed <- atomically $
-                claimInflightEmail appInflightEmails normalizedEmail
-              if not inflightClaimed
-                then do
-                  let apiErr =
-                        ApiError
-                          { apiErrorCode = EmailInFlight
-                          , apiErrorMessage = "Já existe uma submissão em andamento para este email."
-                          , apiErrorRetryAfterMs = Just 1000
-                          }
-                  persistAbuseEvent state AbuseEvent
-                    { abuseEventEmail = Just normalizedEmail
-                    , abuseEventClientIp = clientIp
-                    , abuseEventUserAgent = userAgent
-                    , abuseEventClientSessionId = nonEmptyText reqClientSessionId
-                    , abuseEventHappenedAtMs = nowMs
-                    , abuseEventReasonCode = errorCodeText EmailInFlight
-                    , abuseEventRetryAfterMs = apiErrorRetryAfterMs apiErr
-                    , abuseEventSourceSha256 = Just sourceHash
-                    , abuseEventDetails = object []
+              pendingClaimed <- atomically $
+                claimPendingSlot appPendingCount (cfgMaxPendingSubmissions appConfig)
+              if not pendingClaimed
+                then
+                  respondApiError respond ApiError
+                    { apiErrorCode = ServerBusy
+                    , apiErrorMessage = "The server is busy right now. Try again shortly."
+                    , apiErrorRetryAfterMs = Nothing
                     }
-                  respondApiError respond apiErr
                 else do
-                  pendingClaimed <- atomically $
-                    claimPendingSlot appPendingCount (cfgMaxPendingSubmissions appConfig)
-                  if not pendingClaimed
-                    then do
-                      atomically $ releaseInflightEmail appInflightEmails normalizedEmail
-                      let apiErr =
-                            ApiError
-                              { apiErrorCode = ServerBusy
-                              , apiErrorMessage = "O servidor está ocupado no momento. Tente novamente em instantes."
-                              , apiErrorRetryAfterMs = Nothing
-                              }
-                      persistAbuseEvent state AbuseEvent
-                        { abuseEventEmail = Just normalizedEmail
-                        , abuseEventClientIp = clientIp
-                        , abuseEventUserAgent = userAgent
-                        , abuseEventClientSessionId = nonEmptyText reqClientSessionId
-                        , abuseEventHappenedAtMs = nowMs
-                        , abuseEventReasonCode = errorCodeText ServerBusy
-                        , abuseEventRetryAfterMs = Nothing
-                        , abuseEventSourceSha256 = Just sourceHash
-                        , abuseEventDetails = object
-                            [ "maxPendingSubmissions" .= cfgMaxPendingSubmissions appConfig ]
+                  let releaseAdmission =
+                        atomically (releasePendingSlot appPendingCount)
+                  result <- try $ flip finally releaseAdmission $ do
+                    submissionId <-
+                      createSubmission appDb NewSubmission
+                        { newSubmissionClientIp = clientIp
+                        , newSubmissionUserAgent = userAgent
+                        , newSubmissionReceivedAtMs = nowMs
+                        , newSubmissionSourceCode = reqCode
+                        , newSubmissionSourceSha256 = sha256Text reqCode
                         }
-                      respondApiError respond apiErr
-                    else do
-                      result <- (try (flip finally releaseAdmission $ do
-                        submissionId <-
-                          createSubmission appDb NewSubmission
-                            { newSubmissionEmail = normalizedEmail
-                            , newSubmissionClientIp = clientIp
-                            , newSubmissionUserAgent = userAgent
-                            , newSubmissionClientSessionId = reqClientSessionId
-                            , newSubmissionReceivedAtMs = nowMs
-                            , newSubmissionSourceCode = reqCode
-                            , newSubmissionSourceSha256 = sourceHash
-                            }
-                        executeSubmission appDb appSem submissionId studentBody
-                        ) :: IO (Either SomeException SubmitResp))
-                      case result of
-                        Left _ ->
-                          respondApiError respond ApiError
-                            { apiErrorCode = WorkerFailure
-                            , apiErrorMessage = "Falha interna ao processar a submissão."
-                            , apiErrorRetryAfterMs = Nothing
-                            }
-                        Right submitResp ->
-                          respond $ responseLBS status200
-                            [(hContentType, "application/json")]
-                            (encode submitResp)
-                      where
-                        releaseAdmission = atomically $ do
-                          releasePendingSlot appPendingCount
-                          releaseInflightEmail appInflightEmails normalizedEmail
+                    executeSubmission appDb appSem submissionId studentBody
+                  case (result :: Either SomeException SubmitResp) of
+                    Left _ ->
+                      respondApiError respond ApiError
+                        { apiErrorCode = WorkerFailure
+                        , apiErrorMessage = "Internal error while processing the submission."
+                        , apiErrorRetryAfterMs = Nothing
+                        }
+                    Right submitResp ->
+                      respond $ responseLBS status200
+                        [(hContentType, "application/json")]
+                        (encode submitResp)
 
 executeSubmission :: Database -> QSem -> Int64 -> Text -> IO SubmitResp
 executeSubmission db sem submissionId studentBody = do
@@ -358,30 +227,6 @@ respondApiError respond apiErr =
     ([(hContentType, "application/json")] <> apiErrorHeaders apiErr)
     (encode apiErr)
 
-persistAbuseEvent :: AppState -> AbuseEvent -> IO ()
-persistAbuseEvent AppState { appDb } = logAbuseEvent appDb
-
-limitSnapshotDetails :: LimitSnapshot -> Value
-limitSnapshotDetails LimitSnapshot {..} =
-  object
-    [ "emailCount15m" .= limitEmailCount15m
-    , "emailCount1h" .= limitEmailCount1h
-    , "ipCount1m" .= limitIpCount1m
-    ]
-
-claimInflightEmail :: TVar (Set Text) -> Text -> STM Bool
-claimInflightEmail var email = do
-  emails <- readTVar var
-  if Set.member email emails
-    then pure False
-    else do
-      writeTVar var (Set.insert email emails)
-      pure True
-
-releaseInflightEmail :: TVar (Set Text) -> Text -> STM ()
-releaseInflightEmail var email =
-  modifyTVar' var (Set.delete email)
-
 claimPendingSlot :: TVar Int -> Int -> STM Bool
 claimPendingSlot var maxPending = do
   pending <- readTVar var
@@ -412,11 +257,6 @@ sha256Text =
     . hashlazy
     . BL.fromStrict
     . TE.encodeUtf8
-
-nonEmptyText :: Text -> Maybe Text
-nonEmptyText txt
-  | T.null (T.strip txt) = Nothing
-  | otherwise = Just txt
 
 failIO :: SomeException -> IO a
 failIO err = ioError (userError (show err))
